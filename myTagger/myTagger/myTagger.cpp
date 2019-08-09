@@ -2,28 +2,23 @@
 
 #include "stdafx.h"
 #include <iostream>
-#include <SYS\STAT.H>
-
-#include <stdio.h>
-#include <tchar.h>
-#include <iostream>
-#include <string>
-#include <Windows.h>
-#include <algorithm>
-#include <map>
 #include <fstream>
-#include <vector>
-#include <iomanip>
-
-#include <codecvt>
-#include <cvt/wstring>
-#include <iostream>
-#include <locale>
 #include <string>
-#include <codecvt>
+#include <map>
+#include <vector>
+#include <Windows.h>
+#include <SYS\STAT.H>
 
 const wchar_t *exeName = nullptr;
 
+// -----------------------------------------------------------------------------------------------------------------------
+
+void doPrint(const std::wstring str)
+{
+	char bufFile[MAX_PATH];
+	WideCharToMultiByte(CP_INSTALLED, 0, str.c_str(), -1, bufFile, MAX_PATH, NULL, NULL);
+	std::cout << bufFile;
+}
 // -----------------------------------------------------------------------------------------------------------------------
 
 bool isDir(const wchar_t *path)
@@ -96,8 +91,8 @@ void fixTags(std::wstring &str)
 
 bool fileContainsPath(std::wstring &fileName, const std::wstring &path)
 {
-	std::wstring line;
-	std::wfstream file;
+	std::string line;
+	std::fstream file;
 
 	file.open(fileName, std::fstream::in);
 
@@ -107,9 +102,12 @@ bool fileContainsPath(std::wstring &fileName, const std::wstring &path)
 	}
 	else
 	{
+		char buf[MAX_PATH];
+		WideCharToMultiByte(CP_INSTALLED, 0, path.c_str(), -1, buf, MAX_PATH, NULL, NULL);
+
 		while( std::getline(file, line) )
 		{
-			if( line == path )
+			if( line == buf )
 			{
 				file.close();
 				return true;
@@ -124,7 +122,7 @@ bool fileContainsPath(std::wstring &fileName, const std::wstring &path)
 
 void set(std::wstring fName, std::wstring fData)
 {
-	std::wfstream	file;
+	std::fstream	file;
 	std::wstring	fileName(exeName);
 					fileName += L".db";
 
@@ -132,11 +130,11 @@ void set(std::wstring fName, std::wstring fData)
 
 	if( fileContainsPath(fileName, fName) )
 	{
-		std::map<std::wstring, std::wstring> mMap;
+		std::map<std::string, std::string> mMap;
 
 		file.open(fileName, std::fstream::in);
 		{
-			std::wstring line, line1;
+			std::string line, line1;
 
 			while( std::getline(file, line) )
 			{
@@ -150,33 +148,43 @@ void set(std::wstring fName, std::wstring fData)
 
 		file.open(fileName, std::fstream::out);
 		{
+			char buf[MAX_PATH];
+			WideCharToMultiByte(CP_INSTALLED, 0, fName.c_str(), -1, buf, MAX_PATH, NULL, NULL);
+
 			for(auto iter = mMap.begin(); iter != mMap.end(); ++iter)
 			{
 				file.write(iter->first.c_str(), iter->first.length());
-				file.write(L"\n", 1);
+				file.write("\n", 1);
 
-				if( iter->first == fName )
+				if( iter->first == buf )
 				{
-					std::wstring *str = &iter->second;
+					char bufData[MAX_PATH];
+					WideCharToMultiByte(CP_INSTALLED, 0, fData.c_str(), -1, bufData, MAX_PATH, NULL, NULL);
+
+					std::string *str = &iter->second;
 					str->pop_back();
 					fixTags(fData);
-					*str += L" " + fData + L"]";
+					*str += " ";
+					*str += bufData;
+					*str += "]";
 				}
 
 				file.write(iter->second.c_str(), iter->second.length());
-				file.write(L"\n", 1);
+				file.write("\n", 1);
 			}
 		}
 		file.close();
 	}
 	else
 	{
-		// If the file does not exist, we create it
-		file.open(fileName, std::fstream::in | std::fstream::out | std::fstream::app);
-
 		std::wstring str = fName + L"\n[" + fData + L"]\n";
 
-		file.write(str.c_str(), str.length());
+		file.open(fileName, std::fstream::in | std::fstream::out | std::fstream::app);
+
+		char bufFile[MAX_PATH];
+		WideCharToMultiByte(CP_INSTALLED, 0, str.c_str(), -1, bufFile, MAX_PATH, NULL, NULL);
+		file.write(bufFile, strlen(bufFile));
+
 		file.close();
 	}
 }
@@ -184,8 +192,10 @@ void set(std::wstring fName, std::wstring fData)
 
 void view(const std::wstring &path)
 {
-	std::wfstream	file;
-	std::wstring	line;
+	bool found = false;
+
+	std::fstream	file;
+	std::string		line;
 	std::wstring	fileName(exeName);
 					fileName += L".db";
 
@@ -193,20 +203,26 @@ void view(const std::wstring &path)
 
 	if( file.is_open() )
 	{
+		char buf[MAX_PATH];
+		WideCharToMultiByte(CP_INSTALLED, 0, path.c_str(), -1, buf, MAX_PATH, NULL, NULL);
+
 		while( std::getline(file, line) )
 		{
-			if( line == path )
+			if( line == buf )
 			{
+				found = true;
 				std::getline(file, line);
-				file.close();
-
-				std::wcout << "\t" << line << std::endl;
-				return;
+				std::cout << "\t" << line << std::endl;
+				break;
 			}
 		}
+
+		file.close();
 	}
 
-	std::wcout << "\t" << "Not tags found" << std::endl;
+	if( !found )
+		std::cout << "\t" << "No tags found" << std::endl;
+
 	return;
 }
 // -----------------------------------------------------------------------------------------------------------------------
@@ -270,9 +286,6 @@ void get(std::wstring data, std::wstring path)
 
 				if( found )
 				{
-					std::wcout << " == path = " << path << std::endl;
-					std::wcout << " == line = " << line_path << std::endl;
-
 					if( line_path.find(path) != std::string::npos )
 					{
 						resStr += line_path;
@@ -309,7 +322,9 @@ int _tmain(int argc, _TCHAR* argv[])
 			{
 				std::wstring fileName(argv[2] + 6);
 
-				std::wcout << " ---> Selected target is: '" << fileName << "'" << std::endl;
+				std::wcout << " ---> Selected target is: '";
+				doPrint(fileName);
+				std::wcout << "'" << std::endl;
 				std::wcout << " ---> Input your tag(s) to set: ";
 				std::getline(std::wcin, data);
 
@@ -321,7 +336,9 @@ int _tmain(int argc, _TCHAR* argv[])
 			{
 				std::wstring dirName(argv[2] + 6);
 
-				std::wcout << " ---> Current path is: '" << dirName << "'" << std::endl;
+				std::wcout << " ---> Current path is: '";
+				doPrint(dirName);
+				std::wcout << "'" << std::endl;
 				std::wcout << " ---> Input your tag(s) to find: ";
 				std::getline(std::wcin, data);
 
@@ -335,7 +352,9 @@ int _tmain(int argc, _TCHAR* argv[])
 
 				fixFileName_Set(dirName);
 
-				std::wcout << " ---> Current path is: '" << dirName << "'" << std::endl;
+				std::wcout << " ---> Current path is: '";
+				doPrint(dirName);
+				std::wcout << "'" << std::endl;
 				std::wcout << " ---> Tags found:" << std::endl;;
 
 				view(dirName);
