@@ -13,6 +13,34 @@ const wchar_t *exeName = nullptr;
 
 // -----------------------------------------------------------------------------------------------------------------------
 
+template<class T>
+void parseStr_toVec(const std::basic_string<T> &data, std::vector<std::basic_string<T>> &vec)
+{
+	std::basic_string<T> str;
+	vec.clear();
+
+	for(size_t i = 0; i < data.length(); i++)
+	{
+		T ch = data[i];
+
+		if( ch == T(' ') )
+		{
+			if( str.length() )
+				vec.push_back(str);
+
+			str.clear();
+		}
+		else
+		{
+			str.push_back(ch);
+		}
+	}
+	vec.push_back(str);
+
+	return;
+}
+// -----------------------------------------------------------------------------------------------------------------------
+
 void doPrint(const std::wstring str)
 {
 	char bufFile[MAX_PATH];
@@ -120,7 +148,7 @@ bool fileContainsPath(std::wstring &fileName, const std::wstring &path)
 }
 // -----------------------------------------------------------------------------------------------------------------------
 
-void set(std::wstring fName, std::wstring fData)
+void set(std::wstring fName, std::wstring fData, bool doRewriteAllTags = false)
 {
 	std::fstream	file;
 	std::wstring	fileName(exeName);
@@ -162,9 +190,18 @@ void set(std::wstring fName, std::wstring fData)
 					WideCharToMultiByte(CP_INSTALLED, 0, fData.c_str(), -1, bufData, MAX_PATH, NULL, NULL);
 
 					std::string *str = &iter->second;
-					str->pop_back();
-					fixTags(fData);
-					*str += " ";
+
+					if( doRewriteAllTags )
+					{
+						*str = "[";
+					}
+					else
+					{
+						str->pop_back();
+						fixTags(fData);
+						*str += " ";
+					}
+
 					*str += bufData;
 					*str += "]";
 				}
@@ -190,9 +227,9 @@ void set(std::wstring fName, std::wstring fData)
 }
 // -----------------------------------------------------------------------------------------------------------------------
 
-void view(const std::wstring &path)
+int view(const std::wstring &path)
 {
-	bool found = false;
+	int found = 0;
 
 	std::fstream	file;
 	std::string		line;
@@ -210,7 +247,7 @@ void view(const std::wstring &path)
 		{
 			if( line == buf )
 			{
-				found = true;
+				found = 1;
 				std::getline(file, line);
 				std::cout << "\t" << line << std::endl;
 				break;
@@ -223,10 +260,11 @@ void view(const std::wstring &path)
 	if( !found )
 		std::cout << "\t" << "No tags found" << std::endl;
 
-	return;
+	return found;
 }
 // -----------------------------------------------------------------------------------------------------------------------
 
+// Find item(s) by tag(s) and put them into tmp file for Far Manager to open
 void get(std::wstring data, std::wstring path)
 {
 	fixTags(data);
@@ -302,6 +340,90 @@ void get(std::wstring data, std::wstring path)
 
 	fileTmp.close();
 }
+// -----------------------------------------------------------------------------------------------------------------------
+
+void rem(std::wstring data, std::wstring path)
+{
+	std::fstream	file;
+	std::string		line;
+	std::wstring	fileName(exeName);
+					fileName += L".db";
+
+	file.open(fileName, std::fstream::in);
+
+	if( file.is_open() )
+	{
+		char buf[MAX_PATH];
+		WideCharToMultiByte(CP_INSTALLED, 0, path.c_str(), -1, buf, MAX_PATH, NULL, NULL);
+
+		while( std::getline(file, line) )
+		{
+			if( line == buf )
+			{
+				std::getline(file, line);
+				break;
+			}
+		}
+
+		file.close();
+	}
+
+	if( line.length() )
+	{
+		fixTags(data);
+
+		line = line.substr(1, line.length() - 2);
+
+		std::vector<std::string> vecTags, vecTagsToRemove;
+		parseStr_toVec(line, vecTags);
+
+		char *buf = new char[data.length() + 1];
+		WideCharToMultiByte(CP_INSTALLED, 0, data.c_str(), -1, buf, data.length() + 1, NULL, NULL);
+
+		line = buf;
+
+		delete [] buf;
+
+		parseStr_toVec(line, vecTagsToRemove);
+
+		line.clear();
+
+		for(size_t i = 0; i < vecTags.size(); i++)
+		{
+			bool doAdd = true;
+
+			for(size_t j = 0; j < vecTagsToRemove.size(); j++)
+			{
+				if( vecTags[i] == vecTagsToRemove[j] )
+				{
+					doAdd = false;
+					break;
+				}
+			}
+
+			if( doAdd )
+			{
+				if( line.size() )
+					line += ' ';
+
+				line += vecTags[i];
+			}
+		}
+
+		// rewrite the whole line in file
+		if( line.length() )
+		{
+			wchar_t *buf = new wchar_t[line.length() + 1];
+
+			MultiByteToWideChar(CP_OEMCP, 0, line.c_str(), -1, buf, line.length() + 1);
+
+			std::wstring wData(buf);
+			delete [] buf;
+
+			set(path, wData, true);
+		}
+	}
+}
 
 // =======================================================================================================================
 
@@ -358,6 +480,29 @@ int _tmain(int argc, _TCHAR* argv[])
 				std::wcout << " ---> Tags found:" << std::endl;;
 
 				view(dirName);
+				break;
+			}
+
+			if( arg1 == L"/rem" && argc > 2 )
+			{
+				std::wstring dirName(argv[2] + 6);
+
+				fixFileName_Set(dirName);
+
+				std::wcout << " ---> Current path is: '";
+				doPrint(dirName);
+				std::wcout << "'" << std::endl;
+				std::wcout << " ---> Tags found:" << std::endl;;
+
+				if( view(dirName) )
+				{
+					std::wcout << std::endl;
+
+					std::wcout << " ---> Input your tag(s) to remove: ";
+					std::getline(std::wcin, data);
+
+					rem(data, dirName);
+				}
 				break;
 			}
 
