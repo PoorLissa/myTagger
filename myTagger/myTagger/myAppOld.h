@@ -1,3 +1,7 @@
+#ifndef MY_APP_OLD_H
+#define MY_APP_OLD_H
+#pragma once
+
 #include <vector>
 #include <SYS\STAT.H>
 #include <Windows.h>
@@ -5,6 +9,77 @@
 // -----------------------------------------------------------------------------------------------------------------------
 
 extern const wchar_t *exeName;
+
+// -----------------------------------------------------------------------------------------------------------------------
+
+#if 0
+
+	if( arg1 == L"/set" && argc > 2 )
+	{
+		std::wstring fileName(argv[2] + 6);
+
+		std::wcout << " ---> Selected target is: '";
+		doPrint(fileName);
+		std::wcout << "'" << std::endl;
+		std::wcout << " ---> Input your tag(s) to set: ";
+		std::getline(std::wcin, data);
+
+		set(fileName, data);
+		break;
+	}
+
+	if( arg1 == L"/get" && argc > 2 )
+	{
+		std::wstring dirName(argv[2] + 6);
+
+		std::wcout << " ---> Current path is: '";
+		doPrint(dirName);
+		std::wcout << "'" << std::endl;
+		std::wcout << " ---> Input your tag(s) to find: ";
+		std::getline(std::wcin, data);
+
+		get(data, dirName);
+		break;
+	}
+
+	if( arg1 == L"/view" && argc > 2 )
+	{
+		std::wstring dirName(argv[2] + 6);
+
+		fixFileName_Set(dirName);
+
+		std::wcout << " ---> Current path is: '";
+		doPrint(dirName);
+		std::wcout << "'" << std::endl;
+		std::wcout << " ---> Tags found:" << std::endl;;
+
+		view(dirName);
+		break;
+	}
+
+	if( arg1 == L"/rem" && argc > 2 )
+	{
+		std::wstring dirName(argv[2] + 6);
+
+		fixFileName_Set(dirName);
+
+		std::wcout << " ---> Current path is: '";
+		doPrint(dirName);
+		std::wcout << "'" << std::endl;
+		std::wcout << " ---> Tags found:" << std::endl;;
+
+		if( view(dirName) )
+		{
+			std::wcout << std::endl;
+
+			std::wcout << " ---> Input your tag(s) to remove: ";
+			std::getline(std::wcin, data);
+
+			rem(data, dirName);
+		}
+		break;
+	}
+#endif
 
 // -----------------------------------------------------------------------------------------------------------------------
 
@@ -419,3 +494,5 @@ void rem(std::wstring data, std::wstring path)
 		}
 	}
 }
+
+#endif

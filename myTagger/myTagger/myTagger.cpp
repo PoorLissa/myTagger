@@ -1,13 +1,7 @@
 // myTagger.cpp : Defines the entry point for the console application.
 
 #include "stdafx.h"
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <map>
-
 #include "myApp.h"
-#include "myAppOld.h"
 
 const wchar_t *exeName = nullptr;
 
@@ -20,149 +14,77 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	if( argc > 1 )
 	{
-		std::wstring arg1 = argv[1];
-		std::wstring data;
+		myTagger app;
+
+		std::wstring arg1 = argv[1], data, path;
 
 		do {
 
-			if( arg1 == L"/set" && argc > 2 )
+			// The second param is a path where we start
+			if( argc > 2 )
 			{
-				std::wstring fileName(argv[2] + 6);
-
-				std::wcout << " ---> Selected target is: '";
-				doPrint(fileName);
-				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Input your tag(s) to set: ";
-				std::getline(std::wcin, data);
-
-				set(fileName, data);
-				break;
-			}
-
-			if( arg1 == L"/get" && argc > 2 )
-			{
-				std::wstring dirName(argv[2] + 6);
+				path = argv[2] + 6;
 
 				std::wcout << " ---> Current path is: '";
-				doPrint(dirName);
+				app.doPrint(path);
 				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Input your tag(s) to find: ";
-				std::getline(std::wcin, data);
 
-				get(data, dirName);
-				break;
-			}
+				// -------------------------------------------------------------------------------
 
-			if( arg1 == L"/view" && argc > 2 )
-			{
-				std::wstring dirName(argv[2] + 6);
-
-				fixFileName_Set(dirName);
-
-				std::wcout << " ---> Current path is: '";
-				doPrint(dirName);
-				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Tags found:" << std::endl;;
-
-				view(dirName);
-				break;
-			}
-
-			if( arg1 == L"/rem" && argc > 2 )
-			{
-				std::wstring dirName(argv[2] + 6);
-
-				fixFileName_Set(dirName);
-
-				std::wcout << " ---> Current path is: '";
-				doPrint(dirName);
-				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Tags found:" << std::endl;;
-
-				if( view(dirName) )
+				if( arg1 == L"/Set" )
 				{
-					std::wcout << std::endl;
-
-					std::wcout << " ---> Input your tag(s) to remove: ";
+					std::wcout << " ---> Input your tag(s) to set: ";
 					std::getline(std::wcin, data);
 
-					rem(data, dirName);
+					app.Set(path, data);
+					break;
 				}
-				break;
-			}
 
-			if( arg1 == L"/Set" && argc > 2 )
-			{
-				myTagger app;
+				// -------------------------------------------------------------------------------
 
-				std::wstring fileName(argv[2] + 6);
-
-				std::wcout << " ---> Selected target is: '";
-				doPrint(fileName);
-				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Input your tag(s) to set: ";
-				std::getline(std::wcin, data);
-
-				app.Set(fileName, data);
-				break;
-			}
-
-			if( arg1 == L"/Get" && argc > 2 )
-			{
-				myTagger app;
-
-				std::wstring dirName(argv[2] + 6);
-
-				std::wcout << " ---> Current path is: '";
-				doPrint(dirName);
-				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Tags found:" << std::endl;;
-
-				app.Get(dirName);
-				break;
-			}
-
-			if( arg1 == L"/Find" && argc > 2 )
-			{
-				myTagger app;
-
-				std::wstring dirName(argv[2] + 6);
-
-				std::wcout << " ---> Current path is: '";
-				doPrint(dirName);
-				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Input your tag(s) to find: ";
-				std::getline(std::wcin, data);
-
-				app.Find(data, dirName);
-				break;
-			}
-
-			if( arg1 == L"/Rem" && argc > 2 )
-			{
-				myTagger app;
-
-				std::wstring dirName(argv[2] + 6);
-
-				std::wcout << " ---> Current path is: '";
-				doPrint(dirName);
-				std::wcout << "'" << std::endl;
-				std::wcout << " ---> Tags found:" << std::endl;
-
-				if( app.Get(dirName) )
+				if( arg1 == L"/Get" )
 				{
-					std::wcout << std::endl;
+					std::wcout << " ---> Tags found:" << std::endl;
 
-					std::wcout << " ---> Input your tag(s) to remove (OR input '*' to remove ALL tags): ";
+					app.Get(path);
+					break;
+				}
+
+				// -------------------------------------------------------------------------------
+
+				if( arg1 == L"/Find" )
+				{
+					std::wcout << " ---> Input your tag(s) to find: ";
 					std::getline(std::wcin, data);
 
-					app.Rem(data, dirName);
+					app.Find(data, path);
+					break;
 				}
-				break;
-			}
 
-			std::wcout << " ---> Missing the first verb. Supported verbs are: [/set, /get]. Exiting... " << std::endl;;
-			res = 1;
+				// -------------------------------------------------------------------------------
+
+				if( arg1 == L"/Rem" )
+				{
+					std::wcout << " ---> Tags found:" << std::endl;
+
+					if( app.Get(path) )
+					{
+						std::wcout << std::endl;
+
+						std::wcout << " ---> Input tag name(s) to remove (OR input '*' to remove ALL tags): ";
+						std::getline(std::wcin, data);
+
+						app.Rem(data, path);
+					}
+					break;
+				}
+
+				// -------------------------------------------------------------------------------
+
+				std::wcout << " ---> Missing the first verb. Supported verbs are: [/Set, /Get, /Find, /Rem]." << std::endl;
+				std::wcout << " ---> Exiting... " << std::endl;
+				res = 1;
+			}
 
 		}
 		while( false );
@@ -171,9 +93,15 @@ int _tmain(int argc, _TCHAR* argv[])
 	else
 	{
 		res = 1;
-		std::wcout << " ---> Too few parameters. Exiting... " << std::endl;
+		std::wcout << " ---> Too few parameters." << std::endl;
+		std::wcout << " ---> Exiting... " << std::endl;
+	}
+
+	if( !res )
+	{
+		std::wcout << " ---> Ok" << std::endl;
 	}
 
 	return res;
 }
-
+// =======================================================================================================================

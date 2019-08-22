@@ -1,7 +1,15 @@
+#ifndef MY_APP_H
+#define MY_APP_H
+#pragma once
+
+#include <iostream>
+#include <fstream>
 #include <vector>
+#include <map>
+#include <string>
+#include <stdio.h>
 #include <SYS\STAT.H>
 #include <windows.h>
-#include <stdio.h>
 
 // -----------------------------------------------------------------------------------------------
 
@@ -20,6 +28,7 @@ class myTagger {
 		int		Get					(const std::wstring &);
 		void	Find				(std::wstring, std::wstring);
 		void	Rem					(std::wstring, std::wstring);
+		void	doPrint				(const std::wstring);
 
 	private:
 		bool	isDir				(const wchar_t *);
@@ -31,6 +40,8 @@ class myTagger {
 		void	getStreamData		(const std::wstring *, std::wstring &);
 		bool	dataHasTags			(std::vector<std::wstring> &, std::wstring &);
 		void	deleteStream		(std::wstring);
+		void	buildTagCloud		(const std::wstring &, streamMap &);
+		void	showTagCloud		(const streamMap &);
 
 		template<class T>
 		void	parseStr_toVec		(const std::basic_string<T> &, std::vector<std::basic_string<T>> &);
@@ -44,6 +55,14 @@ class myTagger {
 myTagger::myTagger() : streamSuffix(L":mytag.stream")
 {
 	;
+}
+// -----------------------------------------------------------------------------------------------
+
+void myTagger::doPrint(const std::wstring str)
+{
+	char bufFile[MAX_PATH];
+	WideCharToMultiByte(CP_INSTALLED, 0, str.c_str(), -1, bufFile, MAX_PATH, NULL, NULL);
+	std::cout << bufFile;
 }
 // -----------------------------------------------------------------------------------------------
 
@@ -217,21 +236,23 @@ int myTagger::Get(const std::wstring &path)
 // Removes illegal characters from tags
 bool myTagger::fixTags(std::wstring &str)
 {
+	wchar_t chars_illegal[] = { '[', ']', '(', ')', '*', '\n', '\t' }, old = ' ';
+
 	bool res = true;
-
-	wchar_t chars[] = { '[', ']', '*', '\n', '\t' }, ch_old = ' ';
-
-	size_t N = sizeof(chars)/sizeof(chars[0]);
-
 	std::wstring tmp;
+	size_t i = 0;
 
-	for(size_t i = 0u; i < str.length(); i++)
+	// Skip whitespaces and '|'
+	while( str[i] == ' ' || str[i] == '|' )
+		i++;
+
+	for(; i < str.length(); i++)
 	{
 		wchar_t ch = str[i];
 
-		for(size_t j = 0u; j < N; j++)
+		for(size_t j = 0u; j < sizeof(chars_illegal)/sizeof(chars_illegal[0]); j++)
 		{
-			if( ch == chars[j] )
+			if( ch == chars_illegal[j] )
 			{
 				ch = L' ';
 				res = false;
@@ -239,18 +260,39 @@ bool myTagger::fixTags(std::wstring &str)
 			}
 		}
 
-		if( ch_old == ' ' && ch == ' ' )
+		if( old == ' ' && ch == ' ' )
 		{
 			continue;
 		}
 		else
 		{
+			if( ch == '|' )
+			{
+				if( tmp.empty() )
+					continue;
+
+				if( old == '|' )
+				{
+					tmp += ' ';
+					continue;
+				}
+
+				if( old != ' ' )
+					tmp += ' ';
+			}
+			else
+			{
+				if( old == '|' )
+					tmp += ' ';
+			}
+
 			tmp += ch;
-			ch_old = ch;
+			old  = ch;
 		}
 	}
 
-	if( !tmp.empty() && tmp.back() == ' ' )
+	// Clear all spaces and '|' from the tail, if any
+	while( !tmp.empty() && (tmp.back() == ' ' || tmp.back() == '|'))
 		tmp.pop_back();
 
 	str = tmp;
@@ -264,17 +306,21 @@ void myTagger::Find(std::wstring data, std::wstring path)
 {
 	fixTags(data);
 
-	std::vector<std::wstring> vec;
-	std::wstring str;
+	std::wfstream				fileTmp;
+	std::vector<std::wstring>	vec;
+	std::wstring				str, fileNameTmp(exeName), resStr;
+								fileNameTmp += L".temp";
 
-	// parse the tags user entered into a vector
+	// parse the tags entered by the user into a vector
 	for(size_t i = 0; i < data.length(); i++)
 	{
 		wchar_t ch = data[i];
 
 		if( ch == L' ' )
 		{
-			vec.push_back(str);
+			if( !str.empty())
+				vec.push_back(str);
+
 			str.clear();
 		}
 		else
@@ -284,21 +330,25 @@ void myTagger::Find(std::wstring data, std::wstring path)
 	}
 	vec.push_back(str);
 
+	std::wcout << " ---> Search query is: [ ";
+	for(size_t i = 0; i < vec.size(); i++)
+		std::wcout << vec[i] << " ";
+	std::wcout << "]" << std::endl;
 
-	// open temp file
-	std::wfstream fileTmp;
-	std::wstring fileNameTmp(exeName), resStr;
-	fileNameTmp += L".temp";
-
+	// open temp file and do the seach
 	fileTmp.open(fileNameTmp, std::fstream::out);
 
 	if( fileTmp.is_open() )
 	{
 		findFiles(path, vec, resStr);
 		fileTmp.write(resStr.c_str(), resStr.length());
+		fileTmp.close();
 	}
-
-	fileTmp.close();
+	else
+	{
+		std::wcout << " ---> Error: could not open tmp file '" << fileNameTmp << "'" << std::endl;
+		std::wcout << " ---> Exiting..." << std::endl;
+	}
 
 	return;
 }
@@ -316,7 +366,7 @@ void myTagger::findStreams(const std::wstring &path, streamMap &map, bool isDir)
 		BOOL b = TRUE;
 
 		// Directories do not have data streams, so the first found stream will be an alternate one
-		// Files do have a data stream, we will skip it
+		// Files _do_ have a data stream, so we skip it
 		if( isDir )
 			map[path + wfsd.cStreamName] = size_t(wfsd.StreamSize.QuadPart);
 
@@ -340,21 +390,22 @@ void myTagger::findStreams(const std::wstring &path, streamMap &map, bool isDir)
 // 
 void myTagger::findFiles(std::wstring path, std::vector<std::wstring> &vecTags, std::wstring &res)
 {
-	WIN32_FIND_DATA FindFileData;
-	streamMap		mapStreams;
+	WIN32_FIND_DATA wfd;
+	streamMap		mapStreams, mapTagCloud;
+	size_t			cnt = 0u;
 
 	// Recursively find all files starting from the current directory and map all the alternate streams in these files
-	findFilesRecursive(path, mapStreams, FindFileData);
+	findFilesRecursive(path, mapStreams, wfd);
 
 	if( mapStreams.size() )
 	{
-		std::wcout << "   found " << mapStreams.size() << " alternative streams " << std::endl;
-
 		std::vector<const std::wstring *> vec;
+		size_t size = 0u;
 
+		// Put our tagged streams into separate vector
 		for(auto iter = mapStreams.begin(); iter != mapStreams.end(); ++iter)
 		{
-			size_t pos1 = iter->first.find(':', 3);
+			size_t pos1 = iter->first.find(':', 2);
 			size_t pos2 = iter->first.length() - 6;
 
 			std::wstring str(iter->first.c_str() + pos1, pos2 - pos1);
@@ -363,10 +414,13 @@ void myTagger::findFiles(std::wstring path, std::vector<std::wstring> &vecTags, 
 			{
 				vec.push_back(&iter->first);
 			}
+
+			size += iter->second;
 		}
 
-		size_t cnt = 0u;
+		std::wcout << " ---> Found " << mapStreams.size() << " alternative NTFS stream(s); Total Size = " << size << " bytes" << std::endl;
 
+		// Extract objects with tags matching the search criteria
 		for(size_t i = 0; i < vec.size(); i++)
 		{
 			std::wstring data;
@@ -374,16 +428,26 @@ void myTagger::findFiles(std::wstring path, std::vector<std::wstring> &vecTags, 
 
 			getStreamData(str, data);
 
+			buildTagCloud(data, mapTagCloud);
+
 			if( dataHasTags(vecTags, data) )
 			{
-				size_t pos = str->find(':', 3);
+				size_t pos = str->find(':', 2);
 
 				res += str->substr(0, pos) + L"\n";
 				cnt++;
 			}
 		}
 
-		std::wcout << "   found " << cnt << " tagged files " << std::endl;
+		std::wcout << " ---> Found " << cnt << " tagged object(s)" << std::endl;
+
+		// Display the tag cloud
+		if( cnt )
+			showTagCloud(mapTagCloud);
+	}
+	else
+	{
+		std::wcout << " ---> Alternative NTFS streams not found" << std::endl;
 	}
 
 	return;
@@ -463,6 +527,8 @@ bool myTagger::dataHasTags(std::vector<std::wstring> &tags, std::wstring &data)
 {
 	bool res = true;
 
+	// First try, AND logic
+#if 0
 	for(size_t i = 0; i < tags.size(); i++)
 	{
 		if( data.find(tags[i]) == std::wstring::npos )
@@ -471,12 +537,64 @@ bool myTagger::dataHasTags(std::vector<std::wstring> &tags, std::wstring &data)
 			break;
 		}
 	}
+#endif
+
+	// Second try, AND / OR logic
+	const size_t size = tags.size();
+
+	for(size_t i = 0; i < size; i++)
+	{
+		wchar_t ch = tags[i][0];
+
+		// if OR, just skip it
+		if( ch == '|' )
+			continue;
+
+		// if tag is not found:
+		if( data.find(tags[i]) == std::wstring::npos )
+		{
+			// if the next tag is OR => proceed, but set the result to false
+			// if the next iteration succeeds, the result will be set to true
+			if( i < (size - 1) )
+			{
+				ch = tags[i+1][0];
+
+				if( ch == '|' )
+				{
+					if( i > 0 && tags[i-1][0] == '|' )
+						continue;
+
+					res = false;
+					continue;
+				}
+			}
+
+			// if the next is not OR, but the one before was OR => check if the tag was found
+			// if it was, then procees to the next one
+			// if it was not, then the search failed
+			if( i > 0 )
+			{
+				ch = tags[i-1][0];
+
+				if( ch == '|' )
+				{
+					if( res )
+						continue;
+				}
+			}
+
+			res = false;
+			break;
+		}
+
+		res = true;
+	}
 
 	return res;
 }
 // -----------------------------------------------------------------------------------------------
 
-// Removes tag(s) from alt stream
+// Removes tag(s) from alternative NTFS stream
 void myTagger::Rem(std::wstring data, std::wstring path)
 {
 	std::wstring str_old, str_new, streamPath;
@@ -562,3 +680,54 @@ void myTagger::deleteStream(std::wstring path)
 	return;
 }
 // -----------------------------------------------------------------------------------------------
+
+// Map all the found tags and their quantity
+void myTagger::buildTagCloud(const std::wstring &str, streamMap &map)
+{
+	std::vector<std::wstring> vec;
+
+	parseStr_toVec(str, vec);
+
+	for(size_t i = 0; i < vec.size(); i++)
+	{
+		size_t cnt = map.count(vec[i]);
+
+		if( !cnt )
+			map[vec[i]] = 1;
+		else
+			map[vec[i]] = map[vec[i]] + 1;
+	}
+
+	return;
+}
+// -----------------------------------------------------------------------------------------------
+
+// Print tag cloud contents in a sorted manner
+void myTagger::showTagCloud(const streamMap &map)
+{
+	size_t min = 0u;
+	std::wcout << " ---> Tag Cloud:";
+	std::multimap<size_t, const std::wstring *> mMap;
+
+	for(auto iter = map.begin(); iter != map.end(); ++iter)
+		mMap.insert( std::make_pair(iter->second, &iter->first) );
+
+	for(auto iter = mMap.begin(); iter != mMap.end(); ++iter)
+	{
+		if( iter->first > min )
+		{
+			std::wcout << (min ? "]" : "") << std::endl;
+			std::wcout.width(6);
+			std::wcout << std::right << (min = iter->first) << " :: [ ";
+		}
+
+		std::wcout << *iter->second << " ";
+	}
+
+	std::wcout << "]" << std::endl;
+
+	return;
+}
+// -----------------------------------------------------------------------------------------------
+
+#endif
