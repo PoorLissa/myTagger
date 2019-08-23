@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <SYS\STAT.H>
 #include <windows.h>
+#include <locale>
 
 // -----------------------------------------------------------------------------------------------
 
@@ -131,9 +132,10 @@ void myTagger::Set(std::wstring fName, std::wstring fData, bool doRewriteAllTags
 		std::wcout << " ---> Tag(s) contained illegal characters and were fixed. New set of tags is:\n\t[ " << fData << " ]" << std::endl;
 		std::wcout << " ---> If you want to proceed with this new set of tags, say 'Y': ";
 
-		char ch = getchar();
+		std::wstring s;
+		std::wcin >> s;
 
-		if( ch != 'y' && ch != 'Y' )
+		if( s[0] != L'y' && s[0] != L'Y' )
 		{
 			std::wcout << " ---> Cancelled by user. Exiting..." << std::endl;
 			return;
@@ -149,8 +151,8 @@ void myTagger::Set(std::wstring fName, std::wstring fData, bool doRewriteAllTags
 	DWORD dw;
 	bool  isReadOnly = false;
 
-	auto flagsRewrite = std::fstream::out;
-	auto flagsAppend  = std::fstream::out | std::fstream::app;
+	auto flagsRewrite = std::wfstream::out;
+	auto flagsAppend  = std::wfstream::out | std::wfstream::app;
 
 	std::wfstream file;
 	std::wstring  oldData;
@@ -187,6 +189,8 @@ void myTagger::Set(std::wstring fName, std::wstring fData, bool doRewriteAllTags
 		if( flags == flagsAppend )
 			file.write(L" ", 1u);
 
+		file.imbue(std::locale("rus_rus.866"));
+
 		file.write(fData.c_str(), fData.length());
 		file.close();
 
@@ -206,17 +210,18 @@ int myTagger::Get(const std::wstring &path)
 {
 	int found = 0;
 
-	std::wstring fName(path);
+	std::wfstream file;
+	std::wstring  fName(path), line;
+
 	fixFileName(fName);
 	fName += streamSuffix;
 
-	std::wfstream	file;
-	std::wstring	line;
-
-	file.open(fName, std::fstream::in);
+	file.open(fName, std::wfstream::in);
 
 	if( file.is_open() )
 	{
+		file.imbue(std::locale("rus_rus.866"));
+
 		while( std::getline(file, line) )
 		{
 			found += 1;
@@ -227,7 +232,7 @@ int myTagger::Get(const std::wstring &path)
 	}
 
 	if( !found )
-		std::cout << "\t" << "No tags found" << std::endl;
+		std::wcout << "\t" << "No tags found" << std::endl;
 
 	return found;
 }
@@ -340,6 +345,11 @@ void myTagger::Find(std::wstring data, std::wstring path)
 
 	if( fileTmp.is_open() )
 	{
+		// wfstream won't write cyrillic symbols into the file unless we set up the locale.
+		// "rus_rus.1251" stands for Far's OEM format, which is unexpected by Far.
+		// So we use "rus_rus.866", which stands for Far's ANSI (which is just fine).
+		fileTmp.imbue(std::locale("rus_rus.866"));
+
 		findFiles(path, vec, resStr);
 		fileTmp.write(resStr.c_str(), resStr.length());
 		fileTmp.close();
@@ -394,8 +404,11 @@ void myTagger::findFiles(std::wstring path, std::vector<std::wstring> &vecTags, 
 	streamMap		mapStreams, mapTagCloud;
 	size_t			cnt = 0u;
 
-	// Recursively find all files starting from the current directory and map all the alternate streams in these files
+
+	// Recursively find all files starting with the current directory
+	// Map all the alternate streams in these files
 	findFilesRecursive(path, mapStreams, wfd);
+
 
 	if( mapStreams.size() )
 	{
@@ -405,6 +418,8 @@ void myTagger::findFiles(std::wstring path, std::vector<std::wstring> &vecTags, 
 		// Put our tagged streams into separate vector
 		for(auto iter = mapStreams.begin(); iter != mapStreams.end(); ++iter)
 		{
+//			std::wcout << " mapStreams: " << iter->first << "; size = " << iter->second << std::endl;
+
 			size_t pos1 = iter->first.find(':', 2);
 			size_t pos2 = iter->first.length() - 6;
 
@@ -466,16 +481,20 @@ void myTagger::findFilesRecursive(std::wstring path, streamMap &mapStreams, WIN3
 	if( h != INVALID_HANDLE_VALUE )
 	{
 		BOOL b = TRUE;
+		bool b_isDir;
+		std::wstring fileName;
 
 		while( b )
 		{
-			std::wstring fileName(FindFileData.cFileName);
+			fileName = FindFileData.cFileName;
 
 			if( fileName != L"." && fileName != L".." )
 			{
+//				std::wcout << " found file: " << fileName << std::endl;
+
 				fileName = path + fileName;
 
-				bool b_isDir = isDir(fileName.c_str());
+				b_isDir = isDir(fileName.c_str());
 
 				findStreams(fileName, mapStreams, b_isDir);
 
@@ -484,7 +503,7 @@ void myTagger::findFilesRecursive(std::wstring path, streamMap &mapStreams, WIN3
 					fileName += L"\\";
 
 					if( level == 0 )
-						std::wcout << "\t" << fileName << std::endl;;
+						std::wcout << "\t" << fileName << std::endl;
 
 					findFilesRecursive(fileName, mapStreams, FindFileData, level+1);
 				}
@@ -503,13 +522,15 @@ void myTagger::findFilesRecursive(std::wstring path, streamMap &mapStreams, WIN3
 // Get data from our tag stream
 void myTagger::getStreamData(const std::wstring *path, std::wstring &data)
 {
-	std::wfstream	file;
-	std::wstring	line;
+	std::wfstream file;
+	std::wstring  line;
 
 	file.open(*path, std::fstream::in);
 
 	if( file.is_open() )
 	{
+		file.imbue(std::locale("rus_rus.866"));
+
 		while( std::getline(file, line) )
 		{
 			data += line;
@@ -605,13 +626,12 @@ void myTagger::Rem(std::wstring data, std::wstring path)
 		std::wcout << " ---> You are trying to remove ALL the tags from this object." << std::endl;
 		std::wcout << " ---> If you want to proceed, say 'Y': ";
 
-		char ch = getchar();
+		std::wcin >> str_old;
 
-		if( ch == 'y' || ch == 'Y' )
+		if( str_old[0] == L'y' || str_old[0] == L'Y' )
 		{
 			// Remove all tags
 			deleteStream(path);
-			return;
 		}
 	}
 	else
@@ -675,7 +695,7 @@ void myTagger::deleteStream(std::wstring path)
 
 	DeleteFileW(streamPath.c_str());
 
-	std::wcout << " ---> All tag(s) removed. No tags left:\n\t[ ]" << std::endl;
+	std::wcout << " ---> All tag removed. No tags left:\n\t[ ]" << std::endl;
 
 	return;
 }

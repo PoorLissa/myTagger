@@ -2,6 +2,8 @@
 
 #include "stdafx.h"
 #include "myApp.h"
+#include <io.h>
+#include <fcntl.h>
 
 const wchar_t *exeName = nullptr;
 
@@ -11,6 +13,12 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	int res = 0;
 	exeName = argv[0];
+
+	// https://ru.stackoverflow.com/questions/459154/Русский-язык-в-консоли
+	// http://it-negr.blogspot.com/2012/03/c.html
+	_setmode(_fileno(stdout), _O_U16TEXT);
+	_setmode(_fileno( stdin), _O_U16TEXT);
+	_setmode(_fileno(stderr), _O_U16TEXT);
 
 	if( argc > 1 )
 	{
@@ -25,9 +33,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			{
 				path = argv[2] + 6;
 
-				std::wcout << " ---> Current path is: '";
-				app.doPrint(path);
-				std::wcout << "'" << std::endl;
+				std::wcout << " ---> Current path is: '" << path << "'" << std::endl;
 
 				// -------------------------------------------------------------------------------
 
