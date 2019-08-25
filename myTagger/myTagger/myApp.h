@@ -14,16 +14,12 @@
 
 // -----------------------------------------------------------------------------------------------
 
-extern const wchar_t *exeName;
-
-// -----------------------------------------------------------------------------------------------
-
 class myTagger {
 
 	typedef std::map<std::wstring, size_t> streamMap;
 
 	public:
-		myTagger();
+		myTagger(const wchar_t *);
 
 		void	Set					(std::wstring, std::wstring, bool = false);
 		int		Get					(const std::wstring &);
@@ -49,11 +45,12 @@ class myTagger {
 
 	private:
 		std::wstring streamSuffix;
+		const wchar_t *exeName;
 };
 
 // -----------------------------------------------------------------------------------------------
 
-myTagger::myTagger() : streamSuffix(L":mytag.stream")
+myTagger::myTagger(const wchar_t *exe) : exeName(exe), streamSuffix(L":mytag.stream")
 {
 	;
 }

@@ -5,15 +5,14 @@
 #include <io.h>
 #include <fcntl.h>
 
-const wchar_t *exeName = nullptr;
-
 // =======================================================================================================================
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 	int res = 0;
-	exeName = argv[0];
 
+	// Add support for Russian lang in console
+	// The second thing to do is to imbue fstreams when writing data to the file (see 'myTagger::Get').
 	// https://ru.stackoverflow.com/questions/459154/Русский-язык-в-консоли
 	// http://it-negr.blogspot.com/2012/03/c.html
 	_setmode(_fileno(stdout), _O_U16TEXT);
@@ -22,7 +21,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	if( argc > 1 )
 	{
-		myTagger app;
+		myTagger app(argv[0]);
 
 		std::wstring arg1 = argv[1], data, path;
 
@@ -87,7 +86,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 				// -------------------------------------------------------------------------------
 
-				std::wcout << " ---> Missing the first verb. Supported verbs are: [/Set, /Get, /Find, /Rem]." << std::endl;
+				std::wcout << " ---> Missing the verb. Supported verbs are: [/Set, /Get, /Find, /Rem]." << std::endl;
 				std::wcout << " ---> Exiting... " << std::endl;
 				res = 1;
 			}
