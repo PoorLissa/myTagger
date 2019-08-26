@@ -38,7 +38,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 				if( arg1 == L"/Set" )
 				{
-					std::wcout << " ---> Input your tag(s) to set: ";
+					std::wcout << " ---> Input the tag(s) to set: ";
 					std::getline(std::wcin, data);
 
 					app.Set(path, data);

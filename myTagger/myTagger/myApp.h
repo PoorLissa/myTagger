@@ -30,7 +30,7 @@ class myTagger {
 	private:
 		bool	isDir				(const wchar_t *);
 		void	fixFileName			(std::wstring &);
-		bool	fixTags				(std::wstring &);
+		bool	fixTags				(std::wstring &, bool isSet = false);
 		void	findFiles			(std::wstring, std::vector<std::wstring> &, std::wstring &);
 		void	findFilesRecursive	(std::wstring, streamMap &, WIN32_FIND_DATA &, int level = 0);
 		void	findStreams			(const std::wstring &, streamMap &, bool);
@@ -39,9 +39,13 @@ class myTagger {
 		void	deleteStream		(std::wstring);
 		void	buildTagCloud		(const std::wstring &, streamMap &);
 		void	showTagCloud		(const streamMap &);
+		bool	checkNewTags		(std::wstring &, std::wstring &);
 
 		template<class T>
 		void	parseStr_toVec		(const std::basic_string<T> &, std::vector<std::basic_string<T>> &);
+
+		template<class T>
+		void	parseStr_toMap		(const std::basic_string<T> &, std::map<std::basic_string<T>, size_t> &);
 
 	private:
 		std::wstring streamSuffix;
@@ -92,6 +96,35 @@ void myTagger::parseStr_toVec(const std::basic_string<T> &data, std::vector<std:
 }
 // -----------------------------------------------------------------------------------------------
 
+template<class T>
+void myTagger::parseStr_toMap(const std::basic_string<T> &data, std::map<std::basic_string<T>, size_t> &map)
+{
+	std::basic_string<T> str;
+	map.clear();
+
+	for(size_t i = 0; i < data.length(); i++)
+	{
+		T ch = data[i];
+
+		if( ch == T(' ') )
+		{
+			if( str.length() )
+				map[str] = 1u;
+
+			str.clear();
+		}
+		else
+		{
+			str.push_back(ch);
+		}
+	}
+
+	map[str] = 1u;
+
+	return;
+}
+// -----------------------------------------------------------------------------------------------
+
 bool myTagger::isDir(const wchar_t *path)
 {
 	struct _stat s;
@@ -121,10 +154,46 @@ void myTagger::fixFileName(std::wstring &str)
 }
 // -----------------------------------------------------------------------------------------------
 
+// Compares existing tags with the new set of tags. Skips the tags that are already present
+bool myTagger::checkNewTags(std::wstring &strOld, std::wstring &strNew)
+{
+	bool res = false;
+
+	streamMap map;
+	std::vector<std::wstring> vec;
+	std::wstring tmp;
+
+	parseStr_toVec(strOld, vec);
+
+	// map old tags
+	for(size_t i = 0; i < vec.size(); i++)
+		map[vec[i]] = 1u;
+
+	parseStr_toVec(strNew, vec);
+
+	for(size_t i = 0; i < vec.size(); i++)
+	{
+		if( !map.count(vec[i]) )
+		{
+			if( tmp.size() )
+				tmp += L' ';
+
+			tmp += vec[i];
+
+			res = true;
+		}
+	}
+
+	strNew = tmp;
+
+	return res;
+}
+// -----------------------------------------------------------------------------------------------
+
 // Appends or rewrites data in tags stream
 void myTagger::Set(std::wstring fName, std::wstring fData, bool doRewriteAllTags /* = false*/)
 {
-	if( !fixTags(fData) )
+	if( !fixTags(fData, true) )
 	{
 		std::wcout << " ---> Tag(s) contained illegal characters and were fixed. New set of tags is:\n\t[ " << fData << " ]" << std::endl;
 		std::wcout << " ---> If you want to proceed with this new set of tags, say 'Y': ";
@@ -159,44 +228,52 @@ void myTagger::Set(std::wstring fName, std::wstring fData, bool doRewriteAllTags
 
 	getStreamData(&fName, oldData);
 
-	auto flags = (doRewriteAllTags || oldData.empty())
-					? flagsRewrite
-					: flagsAppend;
-
-	file.open(fName, flags);
-
-	if( !file.is_open() )
+	// Compare the old and the new tags
+	if( doRewriteAllTags || checkNewTags(oldData, fData) )
 	{
-		// Check attributes -- if the file is ReadOnly, remove this flag and restore it later
-		dw = GetFileAttributesW(fName.c_str());
+		auto flags = (doRewriteAllTags || oldData.empty())
+						? flagsRewrite
+						: flagsAppend;
 
-		if( dw & FILE_ATTRIBUTE_READONLY )
+		file.open(fName, flags);
+
+		if( !file.is_open() )
 		{
-			isReadOnly = true;
+			// Check attributes -- if the file is ReadOnly, remove this flag (to restore it later)
+			dw = GetFileAttributesW(fName.c_str());
 
-			if( SetFileAttributesW(fName.c_str(), dw ^ FILE_ATTRIBUTE_READONLY) )
+			if( dw & FILE_ATTRIBUTE_READONLY )
 			{
-				file.open(fName, flags);
+				isReadOnly = true;
+
+				if( SetFileAttributesW(fName.c_str(), dw ^ FILE_ATTRIBUTE_READONLY) )
+				{
+					file.open(fName, flags);
+				}
 			}
 		}
-	}
 
-	if( file.is_open() )
-	{
-		if( flags == flagsAppend )
-			file.write(L" ", 1u);
+		if( file.is_open() )
+		{
+			file.imbue(std::locale("rus_rus.866"));
 
-		file.imbue(std::locale("rus_rus.866"));
+			if( flags == flagsAppend )
+				file.write(L" ", 1u);
 
-		file.write(fData.c_str(), fData.length());
-		file.close();
+			file.write(fData.c_str(), fData.length());
+			file.close();
 
-		if( isReadOnly )
-			SetFileAttributesW(fName.c_str(), dw | FILE_ATTRIBUTE_READONLY);
+			if( isReadOnly )
+				SetFileAttributesW(fName.c_str(), dw | FILE_ATTRIBUTE_READONLY);
+		}
+		else
+		{
+			std::wcout << " Error: Can't open stream '" << fName << "'" << std::endl;
+		}
 	}
 	else
 	{
-		std::wcout << " Error: Can't open stream '" << fName << "'" << std::endl;
+		std::wcout << " ---> No new tags added." << std::endl;
 	}
 
 	return;
@@ -236,7 +313,7 @@ int myTagger::Get(const std::wstring &path)
 // -----------------------------------------------------------------------------------------------
 
 // Removes illegal characters from tags
-bool myTagger::fixTags(std::wstring &str)
+bool myTagger::fixTags(std::wstring &str, bool isSetMode /*= false*/)
 {
 	wchar_t chars_illegal[] = { '[', ']', '(', ')', '*', '\n', '\t' }, old = ' ';
 
@@ -294,10 +371,34 @@ bool myTagger::fixTags(std::wstring &str)
 	}
 
 	// Clear all spaces and '|' from the tail, if any
-	while( !tmp.empty() && (tmp.back() == ' ' || tmp.back() == '|'))
+	while( !tmp.empty() && (tmp.back() == ' ' || tmp.back() == '|') )
 		tmp.pop_back();
 
-	str = tmp;
+
+	// When using '/Get', we don't want to change the order of tags (because the order matters!)
+	if( isSetMode )
+	{
+		str.clear();
+
+		// Remove duplicates and sort -- only for the '/Set' verb
+		if( tmp.size() )
+		{
+			streamMap map;
+			parseStr_toMap(tmp, map);
+
+			for(auto iter = map.begin(); iter != map.end(); ++iter)
+			{
+				if( str.size() )
+					str += L' ';
+
+				str += iter->first;
+			}
+		}
+	}
+	else
+	{
+		str = tmp;
+	}
 
 	return res;
 }
@@ -629,6 +730,10 @@ void myTagger::Rem(std::wstring data, std::wstring path)
 		{
 			// Remove all tags
 			deleteStream(path);
+		}
+		else
+		{
+			std::wcout << " ---> Cancelled." << std::endl;
 		}
 	}
 	else
