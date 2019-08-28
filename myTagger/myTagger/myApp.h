@@ -26,6 +26,7 @@ class myTagger {
 		void	Find				(std::wstring, std::wstring);
 		void	Rem					(std::wstring, std::wstring);
 		void	doPrint				(const std::wstring);
+		void	extractFiles		(std::vector<std::wstring> &, int, _TCHAR* [], std::wstring &);
 
 	private:
 		bool	isDir				(const wchar_t *);
@@ -120,6 +121,33 @@ void myTagger::parseStr_toMap(const std::basic_string<T> &data, std::map<std::ba
 	}
 
 	map[str] = 1u;
+
+	return;
+}
+// -----------------------------------------------------------------------------------------------
+
+// Extract files from parameters
+void myTagger::extractFiles(std::vector<std::wstring> &vec, int argc, _TCHAR* argv[], std::wstring &path)
+{
+	vec.clear();
+
+	if( argc > 3 )
+	{
+		std::wstring tmp(argv[3]);
+
+		if( tmp.substr(0, 7) == L"/files=" )
+		{
+			argv[3] += 7;
+
+			for(int i = 3; i < argc; i++)
+				vec.push_back(argv[i][1] == L':' ? argv[i] : path + argv[i]);
+
+			std::wcout << " ---> Selected files:" << std::endl;
+
+			for(size_t i = 0; i < vec.size(); i++)
+				std::wcout << "\t" << vec[i] << std::endl;
+		}
+	}
 
 	return;
 }
@@ -721,20 +749,8 @@ void myTagger::Rem(std::wstring data, std::wstring path)
 
 	if( data == L"*" )
 	{
-		std::wcout << " ---> You are trying to remove ALL the tags from this object." << std::endl;
-		std::wcout << " ---> If you want to proceed, say 'Y': ";
-
-		std::wcin >> str_old;
-
-		if( str_old[0] == L'y' || str_old[0] == L'Y' )
-		{
-			// Remove all tags
-			deleteStream(path);
-		}
-		else
-		{
-			std::wcout << " ---> Cancelled." << std::endl;
-		}
+		// Remove all tags
+		deleteStream(path);
 	}
 	else
 	{

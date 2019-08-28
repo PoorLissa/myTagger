@@ -1,15 +1,16 @@
+
 T:   myTagger
 {
 s:   Set
-     "\myTagger.exe" /Set /path="!\!.!"
+     "\myTagger.exe" /Set /path="!\\" /files=!&
 g:   Get
      "\myTagger.exe" /Get /path="!\!.!"
 f:   Find
      "\myTagger.exe" /Find /path="!\\"
      tmp:"\myTagger.exe.temp"
-     lua: Keys("AltF7 ENTER")
+     lua: Keys("AltF7 * . * ENTER")
 r:   Remove
-     "\myTagger.exe" /Rem /path="!\!.!"
+     "\myTagger.exe" /Rem /path="!\\" /files=!&
 l:   Show Last Search
      tmp:"\myTagger.exe.temp"
 }
