@@ -8,7 +8,7 @@ g:   Get
 f:   Find
      "\myTagger.exe" /Find /path="!\\"
      tmp:"\myTagger.exe.temp"
-     lua: Keys("AltF7 * . * ENTER")
+     lua: Keys("AltF7 * . * TAB DEL ENTER")
 r:   Remove
      "\myTagger.exe" /Rem /path="!\\" /files=!&
 l:   Show Last Search
