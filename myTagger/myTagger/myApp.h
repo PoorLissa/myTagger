@@ -41,6 +41,7 @@ class myTagger {
 		void	buildTagCloud		(const std::wstring &, streamMap &);
 		void	showTagCloud		(const streamMap &);
 		bool	checkNewTags		(std::wstring &, std::wstring &);
+		void	doPrint_inWidth		(const std::wstring, const size_t);
 
 		template<class T>
 		void	parseStr_toVec		(const std::basic_string<T> &, std::vector<std::basic_string<T>> &);
@@ -66,6 +67,80 @@ void myTagger::doPrint(const std::wstring str)
 	char bufFile[MAX_PATH];
 	WideCharToMultiByte(CP_INSTALLED, 0, str.c_str(), -1, bufFile, MAX_PATH, NULL, NULL);
 	std::cout << bufFile;
+}
+// -----------------------------------------------------------------------------------------------
+
+// Get the current width of console and print tags in several lines if needed
+void myTagger::doPrint_inWidth(const std::wstring str, const size_t offset = 0)
+{
+	size_t columns, rows;
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	columns = csbi.srWindow.Right  - csbi.srWindow.Left + 1;
+	rows	= csbi.srWindow.Bottom - csbi.srWindow.Top  + 1;
+
+	size_t len = str.length();
+	size_t N   = offset + 5;
+
+	if( len + N > columns )
+	{
+		size_t pos0(0), pos1(0), pos2(0), cnt(0);
+
+		do {
+
+			pos2 = str.find(L' ', pos1);
+
+			if( pos2 == std::wstring::npos )
+			{
+
+				if( pos1 == 0u )
+				{
+					std::wcout << "[ " << str << " ]" << std::endl;
+					break;
+				}
+
+				std::wcout.width(cnt ? offset : 0);
+				std::wcout << std::right << "[ " << str.substr(pos0, pos1 - pos0 - 1) << "]" << std::endl;
+
+				if( pos1 < len )
+				{
+					std::wcout.width(offset);
+					std::wcout << std::right << "[ " << str.substr(pos1, len) << "]" << std::endl;
+				}
+			}
+			else
+			{
+				if( (pos2 - pos0 + N) > columns )
+				{
+					std::wcout.width(cnt ? offset : 0);
+					cnt++;
+
+					std::wcout << std::right << "[ " << str.substr(pos0, pos1 - pos0 - 1) << " ]" << std::endl;
+					pos0 = pos1;
+
+					if( (len - pos1 + N) <= columns )
+					{
+						std::wcout.width(offset);
+						std::wcout << std::right << "[ " << str.substr(pos1, len) << " ]" << std::endl;
+						break;
+					}
+				}
+				else
+				{
+					pos1 = pos2 + 1;
+				}
+			}
+
+		}
+		while( pos2 != std::wstring::npos );
+	}
+	else
+	{
+		std::wcout << "[ " << str << " ]" << std::endl;
+	}
+
+	return;
 }
 // -----------------------------------------------------------------------------------------------
 
@@ -327,7 +402,10 @@ int myTagger::Get(const std::wstring &path)
 		while( std::getline(file, line) )
 		{
 			found += 1;
-			std::wcout << L"\t[ " << line << " ]" << std::endl;
+//			std::wcout << L"\t[ " << line << " ]" << std::endl;
+
+			std::wcout << L"\t";
+			doPrint_inWidth(line, 10);
 		}
 
 		file.close();
@@ -844,25 +922,39 @@ void myTagger::buildTagCloud(const std::wstring &str, streamMap &map)
 void myTagger::showTagCloud(const streamMap &map)
 {
 	size_t min = 0u;
-	std::wcout << " ---> Tag Cloud:";
+	std::wcout << " ---> Tag Cloud:" << std::endl;
 	std::multimap<size_t, const std::wstring *> mMap;
+	std::wstring str;
+
+	auto print = [&]()
+	{
+		if( !str.empty() )
+		{
+			std::wcout.width(6);
+			std::wcout << std::right << min << " :: ";
+			doPrint_inWidth(str, 12);
+		}
+	};
 
 	for(auto iter = map.begin(); iter != map.end(); ++iter)
+	{
 		mMap.insert( std::make_pair(iter->second, &iter->first) );
+	}
 
 	for(auto iter = mMap.begin(); iter != mMap.end(); ++iter)
 	{
 		if( iter->first > min )
 		{
-			std::wcout << (min ? "]" : "") << std::endl;
-			std::wcout.width(6);
-			std::wcout << std::right << (min = iter->first) << " :: [ ";
+			print();
+			min = iter->first;
+			str.clear();
 		}
 
-		std::wcout << *iter->second << " ";
+		str += (str.empty() ? L"" : L" ");
+		str += (*iter->second);
 	}
 
-	std::wcout << "]" << std::endl;
+	print();
 
 	return;
 }
