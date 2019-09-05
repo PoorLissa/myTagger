@@ -142,6 +142,26 @@ int _tmain(int argc, _TCHAR* argv[])
 
 					// -------------------------------------------------------------------------------
 
+					// Export all found tags into file(s)
+					// "myTagger.exe" /Exp /path="!\\"
+					if( verb == L"/Exp" )
+					{
+						app.Export(path);
+						break;
+					}
+
+					// -------------------------------------------------------------------------------
+
+					// Import all found tags into file(s)
+					// "myTagger.exe" /Imp /path="!\\"
+					if( verb == L"/Imp" )
+					{
+						app.Import(path);
+						break;
+					}
+
+					// -------------------------------------------------------------------------------
+
 					std::wcout << " ---> Missing the verb. Supported verbs are: [/Set, /Get, /Find, /Rem]." << std::endl;
 					std::wcout << " ---> Exiting... " << std::endl;
 					res = 1;

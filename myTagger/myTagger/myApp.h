@@ -27,6 +27,8 @@ class myTagger {
 		void	Rem					(std::wstring, std::wstring);
 		void	doPrint				(const std::wstring);
 		void	extractFiles		(std::vector<std::wstring> &, int, _TCHAR* [], std::wstring &);
+		void	Export				(std::wstring);
+		void	Import				(std::wstring);
 
 	private:
 		bool	isDir				(const wchar_t *);
@@ -34,6 +36,7 @@ class myTagger {
 		bool	fixTags				(std::wstring &, bool isSet = false);
 		void	findFiles			(std::wstring, std::vector<std::wstring> &, std::wstring &);
 		void	findFilesRecursive	(std::wstring, streamMap &, WIN32_FIND_DATA &, int level = 0);
+		void	findExportRecursive	(std::wstring, streamMap &, WIN32_FIND_DATA &, int level = 0);
 		void	findStreams			(const std::wstring &, streamMap &, bool);
 		void	getStreamData		(const std::wstring *, std::wstring &);
 		bool	dataHasTags			(std::vector<std::wstring> &, std::wstring &);
@@ -510,6 +513,142 @@ bool myTagger::fixTags(std::wstring &str, bool isSetMode /*= false*/)
 }
 // -----------------------------------------------------------------------------------------------
 
+// Export tags
+void myTagger::Export(std::wstring path)
+{
+	WIN32_FIND_DATA wfd;
+	streamMap		mapStreams;
+	size_t			cnt = 0u;
+
+
+	// Recursively find all files starting with the current directory
+	// Map all the alternate streams in these files
+	findFilesRecursive(path, mapStreams, wfd);
+
+
+	if( mapStreams.size() )
+	{
+		std::vector<const std::wstring *> vec;
+		size_t size = 0u;
+
+		// Put our tagged streams into separate vector
+		for(auto iter = mapStreams.begin(); iter != mapStreams.end(); ++iter)
+		{
+			size_t pos1 = iter->first.find(':', 2);
+			size_t pos2 = iter->first.length() - 6;
+
+			std::wstring str(iter->first.c_str() + pos1, pos2 - pos1);
+
+			if( iter->first.substr(pos1, pos2 - pos1) == streamSuffix )
+			{
+				vec.push_back(&iter->first);
+			}
+
+			size += iter->second;
+		}
+
+		std::wcout << " ---> Found " << mapStreams.size() << " alternative NTFS stream(s); Total Size = " << size << " bytes" << std::endl;
+
+		// Extract objects with tags matching the search criteria
+		for(size_t i = 0; i < vec.size(); i++)
+		{
+			std::wfstream file;
+			std::wstring data, fileName;
+			const std::wstring *str = vec[i];
+
+			getStreamData(str, data);
+
+			if( data.length() )
+			{
+				cnt++;
+				fileName = *str;
+
+				size_t pos = fileName.find(L':', 2u);
+
+				fileName[pos] = L'.';
+				pos = fileName.find(L':', 2);
+				fileName = fileName.substr(0, pos);
+
+				file.open(fileName, std::wfstream::out);
+
+				if( file.is_open() )
+				{
+					file.imbue(std::locale("rus_rus.866"));
+
+					file.write(data.c_str(), data.length());
+					file.close();
+				}
+				else
+				{
+					std::wcout << " Error: Can't open stream '" << fileName << "'" << std::endl;
+				}
+			}
+		}
+
+		std::wcout << " ---> Found " << cnt << " tagged object(s)" << std::endl;
+	}
+	else
+	{
+		std::wcout << " ---> Alternative NTFS streams not found" << std::endl;
+	}
+
+	return;
+}
+
+// -----------------------------------------------------------------------------------------------
+
+// Import tags
+void myTagger::Import(std::wstring path)
+{
+	WIN32_FIND_DATA wfd;
+	streamMap		map;
+	size_t			cnt = 0u;
+
+
+	// Recursively find all export files starting with the current directory
+	findExportRecursive(path, map, wfd);
+
+
+	if( map.size() )
+	{
+		std::wcout << " ---> Found " << map.size() << " files of [" << streamSuffix << "] type" << std::endl;
+
+		// Restore tags from export files
+		for(auto iter = map.begin(); iter != map.end(); ++iter)
+		{
+			int found = 0;
+
+			std::wfstream file;
+			std::wstring  fName(iter->first), line;
+
+			file.open(fName, std::wfstream::in);
+
+			if( file.is_open() )
+			{
+				file.imbue(std::locale("rus_rus.866"));
+
+				while( std::getline(file, line) )
+					found += 1;
+
+				file.close();
+			}
+
+			if( found && !line.empty() )
+			{
+				fName = fName.substr(0, fName.length() - streamSuffix.length());
+				Set(fName, line);
+			}
+		}
+	}
+	else
+	{
+		std::wcout << " ---> No files found." << std::endl;
+	}
+
+	return;
+}
+// -----------------------------------------------------------------------------------------------
+
 // Find item(s) by tag(s) and put them into tmp file for Far Manager to open
 void myTagger::Find(std::wstring data, std::wstring path)
 {
@@ -667,6 +806,67 @@ void myTagger::findFiles(std::wstring path, std::vector<std::wstring> &vecTags, 
 	else
 	{
 		std::wcout << " ---> Alternative NTFS streams not found" << std::endl;
+	}
+
+	return;
+}
+// -----------------------------------------------------------------------------------------------
+
+// Recursive search for the files with exported tags
+void myTagger::findExportRecursive(std::wstring path, streamMap &map, WIN32_FIND_DATA &FindFileData, int level /* = 0*/)
+{
+	std::wstring searchPath = path + L"*",
+				 suffix(streamSuffix);
+				 suffix[0] = L'.';
+
+	HANDLE h = FindFirstFileW(searchPath.c_str(), &FindFileData);
+
+	if( h != INVALID_HANDLE_VALUE )
+	{
+		BOOL b = TRUE;
+		bool b_isDir;
+		std::wstring fileName;
+
+		while( b )
+		{
+			fileName = FindFileData.cFileName;
+
+			if( fileName != L"." && fileName != L".." )
+			{
+				bool isExport = false;
+
+				if( fileName.length() > suffix.length() )
+				{
+					size_t pos = fileName.find(suffix.c_str());
+
+					if( pos == (fileName.length() - suffix.length()) )
+						isExport = true;
+				}
+
+				fileName = path + fileName;
+
+				b_isDir = isDir(fileName.c_str());
+
+				if( isExport )
+				{
+					map[fileName] = 1u;
+				}
+
+				if( b_isDir )
+				{
+					fileName += L"\\";
+
+					if( level == 0 )
+						std::wcout << "\t" << fileName << std::endl;
+
+					findExportRecursive(fileName, map, FindFileData, level+1);
+				}
+			}
+
+			b = FindNextFileW(h, &FindFileData);
+		}
+
+		FindClose(h);
 	}
 
 	return;
