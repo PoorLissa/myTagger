@@ -29,6 +29,7 @@ class myTagger {
 		void	extractFiles		(std::vector<std::wstring> &, int, _TCHAR* [], std::wstring &);
 		void	Export				(std::wstring);
 		void	Import				(std::wstring);
+		bool	checkFileSystem		(const std::wstring &);
 
 	private:
 		bool	isDir				(const wchar_t *);
@@ -62,6 +63,37 @@ class myTagger {
 myTagger::myTagger(const wchar_t *exe) : exeName(exe), streamSuffix(L":mytag.stream")
 {
 	;
+}
+// -----------------------------------------------------------------------------------------------
+
+bool myTagger::checkFileSystem(const std::wstring &path)
+{
+	bool res = false;
+	wchar_t drive[4]  = { L"::\\" }, buf[16];
+	DWORD len, flags;
+
+	drive[0] = path[0];
+
+	if( GetVolumeInformationW(drive, NULL, 0, NULL, &len, &flags, buf, 16) )
+	{
+		std::wcout << " ---> File system in '" << drive << "' is: " << buf << std::endl;
+
+		if( flags & FILE_NAMED_STREAMS )
+		{
+			std::wcout << " ---> File streams are supported!" << std::endl;
+			res = true;
+		}
+		else
+		{
+			std::wcout << " ---> File streams are not supported!" << std::endl;
+		}
+	}
+	else
+	{
+		std::wcout << " ---> Error getting File System info for '" << drive << "'" << std::endl;
+	}
+
+	return res;
 }
 // -----------------------------------------------------------------------------------------------
 

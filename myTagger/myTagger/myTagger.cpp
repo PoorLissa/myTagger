@@ -36,135 +36,138 @@ int _tmain(int argc, _TCHAR* argv[])
 				{
 					path = argv[2] + 6;
 					std::wcout << " ---> Current path is: '" << path << "'" << std::endl;
-				
-					// -------------------------------------------------------------------------------
 
-					// Set tags for a single file or multiple files
-					// "myTagger.exe" /Set /path="!\\" /files=!&
-					if( verb == L"/Set" )
+					if( app.checkFileSystem(path) )
 					{
-						// get the list of files to process
-						std::vector<std::wstring> vec;
-						app.extractFiles(vec, argc, argv, path);
+						// -------------------------------------------------------------------------------
 
-						if( vec.size() )
+						// Set tags for a single file or multiple files
+						// "myTagger.exe" /Set /path="!\\" /files=!&
+						if( verb == L"/Set" )
 						{
-							std::wcout << " ---> Input the tag(s) to set: ";
-							std::getline(std::wcin, data);
+							// get the list of files to process
+							std::vector<std::wstring> vec;
+							app.extractFiles(vec, argc, argv, path);
 
-							for(size_t i = 0; i < vec.size(); i++)
-								app.Set(vec[i].c_str(), data);
+							if( vec.size() )
+							{
+								std::wcout << " ---> Input the tag(s) to set: ";
+								std::getline(std::wcin, data);
+
+								for(size_t i = 0; i < vec.size(); i++)
+									app.Set(vec[i].c_str(), data);
+							}
+							else
+							{
+								std::wcout << " ---> No files selected." << std::endl;;
+							}
+
+							break;
 						}
-						else
-						{
-							std::wcout << " ---> No files selected." << std::endl;;
-						}
 
-						break;
-					}
+						// -------------------------------------------------------------------------------
 
-					// -------------------------------------------------------------------------------
-
-					// Get tags for a single file
-					// "myTagger.exe" /Get /path="!\!.!"
-					if( verb == L"/Get" )
-					{
-						std::wcout << " ---> Tags found:" << std::endl;
-
-						app.Get(path);
-						break;
-					}
-
-					// -------------------------------------------------------------------------------
-
-					// Find files containing tag(s)
-					// "myTagger.exe" /Find /path="!\\"
-					if( verb == L"/Find" )
-					{
-						std::wcout << " ---> Input your tag(s) to find: ";
-						std::getline(std::wcin, data);
-
-						app.Find(data, path);
-						break;
-					}
-
-					// -------------------------------------------------------------------------------
-
-					// Remove tags from a single file or multiple files
-					// "myTagger.exe" /Rem /path="!\\" /files=!&
-					if( verb == L"/Rem" )
-					{
-						// get the list of files to process
-						std::vector<std::wstring> vec;
-						app.extractFiles(vec, argc, argv, path);
-
-						if( vec.size() )
+						// Get tags for a single file
+						// "myTagger.exe" /Get /path="!\!.!"
+						if( verb == L"/Get" )
 						{
 							std::wcout << " ---> Tags found:" << std::endl;
 
-							if( app.Get(vec[0]) )
+							app.Get(path);
+							break;
+						}
+
+						// -------------------------------------------------------------------------------
+
+						// Find files containing tag(s)
+						// "myTagger.exe" /Find /path="!\\"
+						if( verb == L"/Find" )
+						{
+							std::wcout << " ---> Input your tag(s) to find: ";
+							std::getline(std::wcin, data);
+
+							app.Find(data, path);
+							break;
+						}
+
+						// -------------------------------------------------------------------------------
+
+						// Remove tags from a single file or multiple files
+						// "myTagger.exe" /Rem /path="!\\" /files=!&
+						if( verb == L"/Rem" )
+						{
+							// get the list of files to process
+							std::vector<std::wstring> vec;
+							app.extractFiles(vec, argc, argv, path);
+
+							if( vec.size() )
 							{
-								bool doProceed = true;
+								std::wcout << " ---> Tags found:" << std::endl;
 
-								std::wcout << "\n ---> Input tag name(s) to remove (OR input '*' to remove ALL tags): ";
-								std::getline(std::wcin, data);
-
-								if( data == L"*" )
+								if( app.Get(vec[0]) )
 								{
-									doProceed = false;
+									bool doProceed = true;
 
-									std::wcout << " ---> You are trying to remove ALL the tags from selected object(s)." << std::endl;
-									std::wcout << " ---> If you want to proceed, say 'Y': ";
-									std::wcin >> tmp;
+									std::wcout << "\n ---> Input tag name(s) to remove (OR input '*' to remove ALL tags): ";
+									std::getline(std::wcin, data);
 
-									if( tmp[0] == L'y' || tmp[0] == L'Y' )
-										doProceed = true;
-								}
+									if( data == L"*" )
+									{
+										doProceed = false;
 
-								if( doProceed )
-								{
-									for(size_t i = 0; i < vec.size(); i++)
-										app.Rem(data, vec[i].c_str());
-								}
-								else
-								{
-									std::wcout << " ---> Cancelled." << std::endl;
+										std::wcout << " ---> You are trying to remove ALL the tags from selected object(s)." << std::endl;
+										std::wcout << " ---> If you want to proceed, say 'Y': ";
+										std::wcin >> tmp;
+
+										if( tmp[0] == L'y' || tmp[0] == L'Y' )
+											doProceed = true;
+									}
+
+									if( doProceed )
+									{
+										for(size_t i = 0; i < vec.size(); i++)
+											app.Rem(data, vec[i].c_str());
+									}
+									else
+									{
+										std::wcout << " ---> Cancelled." << std::endl;
+									}
 								}
 							}
+							else
+							{
+								std::wcout << " ---> No files selected." << std::endl;;
+							}
+
+							break;
 						}
-						else
+
+						// -------------------------------------------------------------------------------
+
+						// Export all found tags into file(s)
+						// "myTagger.exe" /Exp /path="!\\"
+						if( verb == L"/Exp" )
 						{
-							std::wcout << " ---> No files selected." << std::endl;;
+							app.Export(path);
+							break;
 						}
 
-						break;
+						// -------------------------------------------------------------------------------
+
+						// Import all found tags into file(s)
+						// "myTagger.exe" /Imp /path="!\\"
+						if( verb == L"/Imp" )
+						{
+							app.Import(path);
+							break;
+						}
+
+						// -------------------------------------------------------------------------------
+
+						std::wcout << " ---> Missing the verb. Supported verbs are: [/Set, /Get, /Find, /Rem]." << std::endl;
+						std::wcout << " ---> Exiting... " << std::endl;
+						res = 1;
 					}
-
-					// -------------------------------------------------------------------------------
-
-					// Export all found tags into file(s)
-					// "myTagger.exe" /Exp /path="!\\"
-					if( verb == L"/Exp" )
-					{
-						app.Export(path);
-						break;
-					}
-
-					// -------------------------------------------------------------------------------
-
-					// Import all found tags into file(s)
-					// "myTagger.exe" /Imp /path="!\\"
-					if( verb == L"/Imp" )
-					{
-						app.Import(path);
-						break;
-					}
-
-					// -------------------------------------------------------------------------------
-
-					std::wcout << " ---> Missing the verb. Supported verbs are: [/Set, /Get, /Find, /Rem]." << std::endl;
-					std::wcout << " ---> Exiting... " << std::endl;
-					res = 1;
 				}
 				else
 				{
