@@ -46,6 +46,8 @@
          "\myTagger.exe" /Rem /path="!\\" /files=!&
     l:   Show Last Search
          tmp:"\myTagger.exe.temp"
+    :    Copy
+         "\myTagger.exe" /Copy /path="!\!.!"
     :    Import
          "\myTagger.exe" /Imp /path="!\\"
     :    Export

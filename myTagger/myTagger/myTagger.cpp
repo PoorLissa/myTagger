@@ -79,6 +79,18 @@ int _tmain(int argc, _TCHAR* argv[])
 
 						// -------------------------------------------------------------------------------
 
+						// Copies tag data from a single file to clipboard
+						// "myTagger.exe" /Copy /path="!\!.!"
+						if( verb == L"/Copy" )
+						{
+							std::wcout << " ---> Copying tags:" << std::endl;
+
+							app.Copy(path);
+							break;
+						}
+
+						// -------------------------------------------------------------------------------
+
 						// Find files containing tag(s)
 						// "myTagger.exe" /Find /path="!\\"
 						if( verb == L"/Find" )
@@ -164,7 +176,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 						// -------------------------------------------------------------------------------
 
-						std::wcout << " ---> Missing the verb. Supported verbs are: [/Set, /Get, /Find, /Rem]." << std::endl;
+						std::wcout << " ---> Missing the verb. Supported verbs are: [/Set, /Get, /Copy, /Find, /Rem, /Exp, /Imp]." << std::endl;
 						std::wcout << " ---> Exiting... " << std::endl;
 						res = 1;
 					}

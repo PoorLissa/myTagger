@@ -23,6 +23,7 @@ class myTagger {
 
 		void	Set					(std::wstring, std::wstring, bool = false);
 		int		Get					(const std::wstring &);
+		void	Copy				(const std::wstring &);
 		void	Find				(std::wstring, std::wstring);
 		void	Rem					(std::wstring, std::wstring);
 		void	doPrint				(const std::wstring);
@@ -450,6 +451,61 @@ int myTagger::Get(const std::wstring &path)
 		std::wcout << "\t" << "No tags found" << std::endl;
 
 	return found;
+}
+// -----------------------------------------------------------------------------------------------
+
+// Copies tag data from file to clipboard
+void myTagger::Copy(const std::wstring &path)
+{
+	int found = 0;																			// tags not found
+
+	std::wfstream file;
+	std::wstring  fName(path), line;
+
+	fixFileName(fName);
+	fName += streamSuffix;
+
+	file.open(fName, std::wfstream::in);
+
+	if( file.is_open() )
+	{
+		file.imbue(std::locale("rus_rus.866"));
+
+		while( std::getline(file, line) )
+		{
+			found = 2;																		// tags found, but no memory is allocated
+			size_t len = line.length();
+
+			if( len && OpenClipboard(nullptr) )
+			{
+				EmptyClipboard();
+
+				// Allocate a global memory object for the text
+				HGLOBAL hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (len + 1) * sizeof(wchar_t));
+
+				if( hglbCopy )
+				{
+					found = 1;																// tags found and memory is allocated
+
+					wchar_t *buf = static_cast<wchar_t *>(GlobalLock(hglbCopy));			// Lock the handle and copy the text to the buffer
+
+					wmemcpy(buf, line.c_str(), len);
+					buf[len] = (wchar_t)(0);												// terminating null character
+
+					GlobalUnlock(hglbCopy);
+					SetClipboardData(CF_UNICODETEXT, hglbCopy);								// Place the handle on the clipboard
+				}
+
+				CloseClipboard();
+			}
+		}
+
+		file.close();
+	}
+
+	std::wcout << "\t" << (found ? ( found == 1 ? "Tags copied to clipboard" : "No tags copied") : "No tags found") << std::endl;
+
+	return;
 }
 // -----------------------------------------------------------------------------------------------
 
