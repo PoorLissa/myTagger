@@ -16,6 +16,7 @@
 
 class myTagger {
 
+	#define iStatic inline static
 	typedef std::map<std::wstring, size_t> streamMap;
 
 	public:
@@ -31,6 +32,7 @@ class myTagger {
 		void	Export				(std::wstring);
 		void	Import				(std::wstring);
 		bool	checkFileSystem		(const std::wstring &);
+iStatic	HANDLE	getConsole			();
 
 	private:
 		bool	isDir				(const wchar_t *);
@@ -55,15 +57,35 @@ class myTagger {
 		void	parseStr_toMap		(const std::basic_string<T> &, std::map<std::basic_string<T>, size_t> &);
 
 	private:
-		std::wstring streamSuffix;
-		const wchar_t *exeName;
+		std::wstring	streamSuffix;
+		const wchar_t *	exeName;
+static	HANDLE			console;
 };
+
+HANDLE	myTagger::console = nullptr;
+
+// -----------------------------------------------------------------------------------------------
+
+#define clGreen		FOREGROUND_GREEN|								  FOREGROUND_INTENSITY
+#define clWhite		FOREGROUND_RED	|FOREGROUND_GREEN|FOREGROUND_BLUE
+#define clWHITE		FOREGROUND_RED	|FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY
+#define clYellow	FOREGROUND_GREEN|FOREGROUND_RED	 |				  FOREGROUND_INTENSITY
+#define clRed		FOREGROUND_RED	|								  FOREGROUND_INTENSITY
+
+inline std::wostream& green (std::wostream &s) { SetConsoleTextAttribute(myTagger::getConsole(), clGreen );	return s; }
+inline std::wostream& white (std::wostream &s) { SetConsoleTextAttribute(myTagger::getConsole(), clWhite );	return s; }
 
 // -----------------------------------------------------------------------------------------------
 
 myTagger::myTagger(const wchar_t *exe) : exeName(exe), streamSuffix(L":mytag.stream")
 {
-	;
+	console = GetStdHandle(STD_OUTPUT_HANDLE);
+}
+// -----------------------------------------------------------------------------------------------
+
+HANDLE myTagger::getConsole()
+{
+	return console;
 }
 // -----------------------------------------------------------------------------------------------
 
@@ -112,7 +134,7 @@ void myTagger::doPrint_inWidth(const std::wstring str, const size_t offset = 0)
 	size_t columns, rows;
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	GetConsoleScreenBufferInfo(myTagger::getConsole(), &csbi);
 	columns = csbi.srWindow.Right  - csbi.srWindow.Left + 1;
 	rows	= csbi.srWindow.Bottom - csbi.srWindow.Top  + 1;
 
@@ -132,17 +154,17 @@ void myTagger::doPrint_inWidth(const std::wstring str, const size_t offset = 0)
 
 				if( pos1 == 0u )
 				{
-					std::wcout << "[ " << str << " ]" << std::endl;
+					std::wcout << "[ " << green << str << white << " ]" << std::endl;
 					break;
 				}
 
 				std::wcout.width(cnt ? offset : 0);
-				std::wcout << std::right << "[ " << str.substr(pos0, pos1 - pos0 - 1) << "]" << std::endl;
+				std::wcout << std::right << "[ " << green << str.substr(pos0, pos1 - pos0 - 1) << white << "]" << std::endl;
 
 				if( pos1 < len )
 				{
 					std::wcout.width(offset);
-					std::wcout << std::right << "[ " << str.substr(pos1, len) << "]" << std::endl;
+					std::wcout << std::right << "[ " << green << str.substr(pos1, len) << white << "]" << std::endl;
 				}
 			}
 			else
@@ -152,13 +174,13 @@ void myTagger::doPrint_inWidth(const std::wstring str, const size_t offset = 0)
 					std::wcout.width(cnt ? offset : 0);
 					cnt++;
 
-					std::wcout << std::right << "[ " << str.substr(pos0, pos1 - pos0 - 1) << " ]" << std::endl;
+					std::wcout << std::right << "[ " << green << str.substr(pos0, pos1 - pos0 - 1) << white << " ]" << std::endl;
 					pos0 = pos1;
 
 					if( (len - pos1 + N) <= columns )
 					{
 						std::wcout.width(offset);
-						std::wcout << std::right << "[ " << str.substr(pos1, len) << " ]" << std::endl;
+						std::wcout << std::right << "[ " << green << str.substr(pos1, len) << white << " ]" << std::endl;
 						break;
 					}
 				}
@@ -173,7 +195,7 @@ void myTagger::doPrint_inWidth(const std::wstring str, const size_t offset = 0)
 	}
 	else
 	{
-		std::wcout << "[ " << str << " ]" << std::endl;
+		std::wcout << "[ " << green << str << white << " ]" << std::endl;
 	}
 
 	return;
