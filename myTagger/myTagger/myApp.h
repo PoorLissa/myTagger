@@ -224,7 +224,9 @@ void myTagger::parseStr_toVec(const std::basic_string<T> &data, std::vector<std:
 			str.push_back(ch);
 		}
 	}
-	vec.push_back(str);
+
+	if( str.length() )
+		vec.push_back(str);
 
 	return;
 }
@@ -770,23 +772,7 @@ void myTagger::Find(std::wstring data, std::wstring path)
 								fileNameTmp += L".temp";
 
 	// parse the tags entered by the user into a vector
-	for(size_t i = 0; i < data.length(); i++)
-	{
-		wchar_t ch = data[i];
-
-		if( ch == L' ' )
-		{
-			if( !str.empty())
-				vec.push_back(str);
-
-			str.clear();
-		}
-		else
-		{
-			str.push_back(ch);
-		}
-	}
-	vec.push_back(str);
+	parseStr_toVec(data, vec);
 
 	std::wcout << " ---> Search query is: [ ";
 	for(size_t i = 0; i < vec.size(); i++)
@@ -817,7 +803,7 @@ void myTagger::Find(std::wstring data, std::wstring path)
 }
 // -----------------------------------------------------------------------------------------------
 
-// Find alternate streams for a given object (dir or file)
+// Find alternate streams belonging to a given object (dir or file)
 void myTagger::findStreams(const std::wstring &path, streamMap &map, bool isDir)
 {
 	WIN32_FIND_STREAM_DATA wfsd;
