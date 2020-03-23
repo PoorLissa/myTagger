@@ -24,9 +24,6 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="myAppOld.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="myApp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
